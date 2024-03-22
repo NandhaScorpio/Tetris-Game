@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tetris</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+
+    canvas {
+      border: 2px solid black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="tetrisCanvas" width="240" height="400"></canvas>
+  <script>
+    const canvas = document.getElementById('tetrisCanvas');
+    const context = canvas.getContext('2d');
+    const ROWS = 20;
+    const COLS = 10;
+    const BLOCK_SIZE = 20;
+    const KEY_LEFT = 37;
+    const KEY_RIGHT = 39;
+    const KEY_DOWN = 40;
+    const KEY_ROTATE = 38;
+
+    const SHAPES = [
+      [[1, 1, 1, 1]],
+      [[1, 1], [1, 1]],
+      [[1, 0, 0], [1, 1, 1]],
+      [[0, 0, 1], [1, 1, 1]],
+      [[0, 1, 1], [1, 1, 0]],
+      [[1, 1, 0], [0, 1, 1]],
+      [[1, 1, 1], [0, 1, 0]]
+    ];
+
+    let board = [];
+    let currentBlock;
+    let intervalId;
+
+    // Initialize the board
+    for (let row = 0; row < ROWS; row++) {
+      board[row] = [];
+      for (let col = 0; col < COLS; col++) {
+        board[row][col] = 0;
+      }
+    }
+
+    function draw() {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw the board
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          if (board[row][col]) {
+            context.fillStyle = 'blue';
+            context.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            context.strokeStyle = 'white';
+            context.strokeRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          }
+        }
+      }
+
+      // Draw the current block
+      if (currentBlock) {
+        for (let row = 0; row < currentBlock.shape.length; row++) {
+          for (let col = 0; col < currentBlock.shape[0].length; col++) {
+            if (currentBlock.shape[row][col]) {
+              context.fillStyle = 'red';
+              context.fillRect((col + currentBlock.x) * BLOCK_SIZE, (row + currentBlock.y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+              context.strokeStyle = 'white';
+              context.strokeRect((col + currentBlock.x) * BLOCK_SIZE, (row + currentBlock.y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            }
+          }
+        }
+      }
+    }
+
+    function moveLeft() {
+      if (canMove(currentBlock, -1, 0)) {
+        currentBlock.x--;
+        draw();
+      }
+    }
+
+    function moveRight() {
+      if (canMove(currentBlock, 1, 0)) {
+        currentBlock.x++;
+        draw();
+      }
+    }
+
+    function moveDown() {
+      if (canMove(currentBlock, 0, 1)) {
+        currentBlock.y++;
+        draw();
+      } else {
+        mergeBlock();
+        checkRows();
+        generateBlock();
+      }
+    }
+
+    function rotate() {
+      const rotatedBlock = [];
+      for (let col = 0; col < currentBlock.shape[0].length; col++) {
+        rotatedBlock[col] = [];
+        for (let row = 0; row < currentBlock.shape.length; row++) {
+          rotatedBlock[col][currentBlock.shape.length - row - 1] = currentBlock.shape[row][col];
+        }
+      }
+      if (canMove({ shape: rotatedBlock, x: currentBlock.x, y: currentBlock.y }, 0, 0)) {
+        currentBlock.shape = rotatedBlock;
+        draw();
+      }
+    }
+
+    function canMove(block, offsetX, offsetY) {
+      for (let row = 0; row < block.shape.length; row++) {
+        for (let col = 0; col < block.shape[0].length; col++) {
+          if (block.shape[row][col]) {
+            let newX = block.x + col + offsetX;
+            let newY = block.y + row + offsetY;
+
+            if (newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && board[newY][newX])) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    function mergeBlock() {
+      for (let row = 0; row < currentBlock.shape.length; row++) {
+        for (let col = 0; col < currentBlock.shape[0].length; col++) {
+          if (currentBlock.shape[row][col]) {
+            board[currentBlock.y + row][currentBlock.x + col] = 1;
+          }
+        }
+      }
+    }
+
+    function checkRows() {
+      for (let row = ROWS - 1; row >= 0; row--) {
+        if (board[row].every(cell => cell)) {
+          // Remove the row
+          board.splice(row, 1);
+          // Add a new empty row at the top
+          board.unshift(Array(COLS).fill(0));
+        }
+      }
+    }
+
+    function generateBlock() {
+      const randomIndex = Math.floor(Math.random() * SHAPES.length);
+      const randomShape = SHAPES[randomIndex];
+      currentBlock = {
+        shape: randomShape,
+        x: Math.floor((COLS - randomShape[0].length) / 2),
+        y: 0
+      };
+      if (!canMove(currentBlock, 0, 0)) {
+        clearInterval(intervalId);
+        alert('Game Over!');
+      }
+    }
+
+    function gameLoop() {
+      moveDown();
+    }
+
+    document.addEventListener('keydown', event => {
+      switch (event.keyCode) {
+        case KEY_LEFT:
+          moveLeft();
+          break;
+        case KEY_RIGHT:
+          moveRight();
+          break;
+        case KEY_DOWN:
+          moveDown();
+          break;
+        case KEY_ROTATE:
+          rotate();
+          break;
+      }
+    });
+
+    generateBlock();
+    draw();
+    intervalId = setInterval(gameLoop, 1000);
+
+  </script>
+</body>
+</html>
